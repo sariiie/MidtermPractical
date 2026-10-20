@@ -1,0 +1,15 @@
+<div class="grid items-center gap-10 lg:grid-cols-2">
+    <div class="hidden lg:block">
+        <Hero Heading="false" Tagline="Log in to keep your scores, or jump in as a guest and start playing." />
+    </div>
+
+    <div class="mx-auto w-full max-w-md lg:max-w-none">
+        <div class="chunk rounded-2xl bg-panel p-6 sm:p-8">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

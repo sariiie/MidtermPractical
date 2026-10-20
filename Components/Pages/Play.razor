@@ -1,0 +1,262 @@
+@page "/play"
+@using System.Globalization
+@implements IDisposable
+@inject GameSession Session
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Playing · TriviaMaster Arcade</PageTitle>
+
+@if (_question is null)
+{
+    <p class="py-20 text-center text-cream/70">Loading…</p>
+}
+else
+{
+    <div @key="_index" class="anim-in mx-auto max-w-3xl space-y-5">
+
+        <!-- Score / progress -->
+        <div class="flex items-end justify-between gap-4">
+            <div>
+                <p class="text-sm font-semibold text-cream/60">Score</p>
+                <p class="font-display text-4xl text-sun">@_score.ToString("N0")</p>
+            </div>
+
+            @if (_streak >= 2)
+            {
+                <p class="chunk-sm rounded-full bg-coral px-3 py-1 font-display text-sm text-ink">🔥 @_streak in a row</p>
+            }
+
+            <p class="font-display text-lg text-cream/70">@(_index + 1) of @Session.Questions.Count</p>
+        </div>
+
+        <div class="flex gap-1.5" aria-hidden="true">
+            @for (var i = 0; i < Session.Questions.Count; i++)
+            {
+                <span class="@SegmentClass(i) h-3 flex-1 rounded-full border-2 border-edge"></span>
+            }
+        </div>
+
+        <!-- Countdown -->
+        <div class="flex items-center gap-3">
+            <div class="chunk-sm h-6 flex-1 overflow-hidden rounded-full bg-edge" role="timer" aria-label="Time left">
+                <div class="h-full @BarColor transition-[width] duration-100 ease-linear" style="width:@BarWidth"></div>
+            </div>
+            <p class="w-14 text-right font-display text-2xl @(Fraction <= 0.25 && !_answered ? "text-coral" : "text-cream")">@SecondsLeft</p>
+        </div>
+
+        <!-- Question -->
+        <div class="chunk space-y-5 rounded-2xl bg-panel p-5 sm:p-8">
+            <div class="flex flex-wrap items-center gap-2 text-sm font-bold">
+                <span class="chunk-sm rounded-full bg-panel-hi px-3 py-1">@Session.Settings.Category.Emoji @Session.Settings.Category.Name</span>
+                <span class="chunk-sm rounded-full bg-panel-hi px-3 py-1">@_question.Difficulty</span>
+                @if (!_answered)
+                {
+                    <span class="chunk-sm ml-auto rounded-full bg-sky px-3 py-1 text-ink">⚡ @Mult(Scoring.Multiplier(Fraction)) speed bonus</span>
+                }
+            </div>
+
+            <h2 class="text-xl font-extrabold leading-snug sm:text-2xl">@_question.Text</h2>
+
+            <div class="grid gap-3 @(_question.Type == QuestionType.Boolean ? "grid-cols-2" : "sm:grid-cols-2")">
+                @for (var i = 0; i < _question.Answers.Count; i++)
+                {
+                    var answer = _question.Answers[i];
+                    var letter = (char)('A' + i);
+                    <button type="button" disabled="@_answered" @onclick="() => Resolve(answer)" class="@AnswerClass(answer)">
+                        @if (_question.Type == QuestionType.Multiple)
+                        {
+                            <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-edge/40 font-display text-sm">@letter</span>
+                        }
+                        <span>@answer</span>
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Feedback -->
+        @if (_answered)
+        {
+            var last = Session.Answers[^1];
+            <div class="anim-in chunk flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5 text-ink @(last.IsCorrect ? "bg-mint" : "bg-coral")" role="status">
+                <div>
+                    @if (last.IsCorrect)
+                    {
+                        <p class="font-display text-xl">Correct! +@last.Points</p>
+                        <p class="text-sm font-semibold">@Mult(last.Multiplier) speed bonus, answered in @(last.TimeTaken.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture))s</p>
+                    }
+                    else
+                    {
+                        <p class="font-display text-xl">@(last.TimedOut ? "Time's up!" : "Not quite.")</p>
+                        <p class="text-sm font-semibold">The answer was: @_question.CorrectAnswer</p>
+                    }
+                </div>
+                <button type="button" @onclick="Next"
+                        class="chunk-sm chunk-btn rounded-xl bg-cream px-5 py-3 font-display text-base">
+                    @(_index + 1 >= Session.Questions.Count ? "See results" : "Next question")
+                </button>
+            </div>
+        }
+
+        <div class="pt-2 text-center">
+            <button type="button" @onclick="Quit" class="text-sm text-cream/50 underline hover:text-coral">Quit game</button>
+        </div>
+    </div>
+}
+
+@code {
+    private const int TickMs = 100;
+
+    private TriviaQuestion? _question;
+    private int _index;
+    private int _score;
+    private int _streak;
+    private string? _selected;
+    private bool _answered;
+    private double _limit;
+    private double _remaining;
+    private bool _disposed;
+
+    private readonly System.Diagnostics.Stopwatch _sw = new();
+    private System.Timers.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        // Page refreshed or opened directly: there's no game in memory, so go home.
+        if (!Session.HasActiveGame)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        LoadQuestion();
+    }
+
+    private void LoadQuestion()
+    {
+        _question = Session.Questions[_index];
+        _selected = null;
+        _answered = false;
+        _limit = Session.Settings.Difficulty.TimeLimitSeconds();
+        _remaining = _limit;
+
+        _sw.Restart();
+        if (_timer is null)
+        {
+            _timer = new System.Timers.Timer(TickMs);
+            _timer.Elapsed += (_, _) => _ = InvokeAsync(OnTick);
+        }
+        _timer.Start();
+    }
+
+    private void OnTick()
+    {
+        if (_disposed || _answered) return;
+
+        _remaining = Math.Max(0, _limit - _sw.Elapsed.TotalSeconds);
+        if (_remaining <= 0)
+            Resolve(null);
+        else
+            StateHasChanged();
+    }
+
+    /// <summary>Called when the player picks an answer (or with null when time runs out).</summary>
+    private void Resolve(string? answer)
+    {
+        if (_answered || _question is null) return;
+
+        _answered = true;
+        _timer?.Stop();
+        _sw.Stop();
+
+        var timedOut = answer is null;
+        var elapsed = timedOut ? _limit : Math.Min(_sw.Elapsed.TotalSeconds, _limit);
+        var correct = !timedOut && answer == _question.CorrectAnswer;
+        var fraction = Math.Clamp(1 - elapsed / _limit, 0, 1);
+
+        _remaining = _limit - elapsed;
+        _selected = answer;
+
+        var points = correct ? Scoring.Points(_question.Difficulty, fraction) : 0;
+        _score += points;
+        _streak = correct ? _streak + 1 : 0;
+
+        Session.Answers.Add(new AnswerRecord
+        {
+            Question = _question,
+            SelectedAnswer = answer,
+            IsCorrect = correct,
+            TimedOut = timedOut,
+            TimeTaken = TimeSpan.FromSeconds(elapsed),
+            Multiplier = correct ? Scoring.Multiplier(fraction) : 0,
+            Points = points
+        });
+
+        StateHasChanged();
+    }
+
+    private async Task Next()
+    {
+        if (_index + 1 >= Session.Questions.Count)
+        {
+            Session.Finish();
+            Session.IsNewBest = await Auth.RecordGameAsync(Session.Result!);
+            Nav.NavigateTo("/results");
+            return;
+        }
+
+        _index++;
+        LoadQuestion();
+    }
+
+    private void Quit()
+    {
+        Session.Reset();
+        Nav.NavigateTo("/");
+    }
+
+    // ---- view helpers ----
+
+    private double Fraction => _limit <= 0 ? 0 : Math.Clamp(_remaining / _limit, 0, 1);
+
+    private string BarWidth => (Fraction * 100).ToString("F1", CultureInfo.InvariantCulture) + "%";
+
+    private string SecondsLeft => ((int)Math.Ceiling(_remaining)).ToString(CultureInfo.InvariantCulture) + "s";
+
+    private string BarColor => Fraction switch
+    {
+        > 0.5 => "bg-mint",
+        > 0.25 => "bg-sun",
+        _ => "bg-coral"
+    };
+
+    private static string Mult(double m) => m.ToString("0.##", CultureInfo.InvariantCulture) + "×";
+
+    private string SegmentClass(int i)
+    {
+        if (i < Session.Answers.Count)
+            return Session.Answers[i].IsCorrect ? "bg-mint" : "bg-coral";
+        return i == _index ? "bg-sky" : "bg-panel";
+    }
+
+    private string AnswerClass(string answer)
+    {
+        var layout = _question!.Type == QuestionType.Boolean
+            ? "justify-center py-6 text-2xl"
+            : "py-4 text-left text-base";
+
+        var state = !_answered ? "bg-panel-hi text-cream"
+            : answer == _question.CorrectAnswer ? "bg-mint text-ink anim-pop"
+            : answer == _selected ? "bg-coral text-ink anim-shake"
+            : "bg-panel text-cream/40";
+
+        return $"chunk-sm chunk-btn flex w-full items-center gap-3 rounded-xl px-4 font-bold {layout} {state}";
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _timer?.Stop();
+        _timer?.Dispose();
+    }
+}

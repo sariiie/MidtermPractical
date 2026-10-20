@@ -1,0 +1,174 @@
+@page "/results"
+@using System.Globalization
+@inject GameSession Session
+@inject TriviaApiService Api
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Results · TriviaMaster Arcade</PageTitle>
+
+@if (_r is null)
+{
+    <p class="py-20 text-center text-cream/70">Loading…</p>
+}
+else
+{
+    <div class="anim-in mx-auto max-w-3xl space-y-8">
+
+        <section class="chunk rounded-2xl bg-panel p-6 text-center sm:p-10">
+            <h1 class="font-display text-3xl text-sun">Game over</h1>
+            @if (Session.IsNewBest)
+            {
+                <p class="chunk-sm mt-3 inline-block rotate-2 rounded-md bg-sun px-3 py-1 font-display text-ink">New personal best!</p>
+            }
+
+            <div class="@RankColor chunk mx-auto mt-6 flex h-32 w-32 items-center justify-center rounded-full font-display text-7xl text-ink">
+                @_r.Rank
+            </div>
+            <p class="mt-4 font-display text-2xl">@_r.RankTitle</p>
+            <p class="mt-1 text-cream/70">
+                @_r.Settings.Category.Emoji @_r.Settings.Category.Name, @_r.Settings.Difficulty, @_r.Settings.Type.Label()
+            </p>
+
+            <p class="mt-8 font-display text-6xl text-sun">@_r.TotalScore.ToString("N0")</p>
+            <p class="text-cream/70">total points</p>
+
+            <div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="chunk-sm rounded-xl bg-panel-hi p-4">
+                    <p class="font-display text-2xl">@_r.Correct/@_r.Total</p>
+                    <p class="text-sm text-cream/70">correct</p>
+                </div>
+                <div class="chunk-sm rounded-xl bg-panel-hi p-4">
+                    <p class="font-display text-2xl">@((_r.Accuracy * 100).ToString("0"))%</p>
+                    <p class="text-sm text-cream/70">accuracy</p>
+                </div>
+                <div class="chunk-sm rounded-xl bg-panel-hi p-4">
+                    <p class="font-display text-2xl">@(_r.AverageSeconds.ToString("0.0", CultureInfo.InvariantCulture))s</p>
+                    <p class="text-sm text-cream/70">avg. answer time</p>
+                </div>
+                <div class="chunk-sm rounded-xl bg-panel-hi p-4">
+                    <p class="font-display text-2xl">🔥 @_r.BestStreak</p>
+                    <p class="text-sm text-cream/70">best streak</p>
+                </div>
+            </div>
+
+            @if (_error is not null)
+            {
+                <div role="alert" class="chunk-sm mt-6 rounded-xl bg-coral px-4 py-3 font-semibold text-ink">@_error</div>
+            }
+
+            <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <button type="button" @onclick="PlayAgainAsync" disabled="@_loading"
+                        class="chunk-sm chunk-btn rounded-xl bg-mint px-6 py-3 font-display text-lg text-ink disabled:opacity-60">
+                    @(_loading ? "Loading…" : "Play again")
+                </button>
+                <button type="button" @onclick="ChangeSettings"
+                        class="chunk-sm chunk-btn rounded-xl bg-sun px-6 py-3 font-display text-lg text-ink">
+                    Change settings
+                </button>
+                <button type="button" @onclick="FireConfettiAsync"
+                        class="chunk-sm chunk-btn rounded-xl bg-panel-hi px-6 py-3 font-display text-lg">
+                    🎉 Confetti
+                </button>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="mb-4 font-display text-2xl text-sun">Question breakdown</h2>
+            <ul class="space-y-3">
+                @for (var i = 0; i < _r.Answers.Count; i++)
+                {
+                    var a = _r.Answers[i];
+                    <li class="chunk-sm flex gap-4 rounded-xl p-4 @(a.IsCorrect ? "bg-mint/15" : "bg-coral/15")">
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-display text-ink @(a.IsCorrect ? "bg-mint" : "bg-coral")">
+                            @(a.IsCorrect ? "✓" : "✗")
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="font-bold">@(i + 1). @a.Question.Text</p>
+                            @if (a.IsCorrect)
+                            {
+                                <p class="mt-1 text-sm text-cream/70">@a.Question.CorrectAnswer</p>
+                            }
+                            else
+                            {
+                                <p class="mt-1 text-sm text-cream/70">
+                                    @(a.TimedOut ? "Timed out." : $"You said {a.SelectedAnswer}.")
+                                    Answer: <span class="font-bold text-mint">@a.Question.CorrectAnswer</span>
+                                </p>
+                            }
+                        </div>
+                        <div class="shrink-0 text-right text-sm">
+                            <p class="font-display">+@a.Points</p>
+                            <p class="text-cream/60">@(a.TimeTaken.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture))s</p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+    </div>
+}
+
+@code {
+    private QuizResult? _r;
+    private bool _loading;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _r = Session.Result;
+        if (_r is null)
+            Nav.NavigateTo("/", replace: true);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _r is not null)
+            await FireConfettiAsync();
+    }
+
+    // More correct answers = more confetti. A 0% run gets none.
+    private async Task FireConfettiAsync()
+    {
+        if (_r is null || _r.Correct == 0) return;
+        var count = (int)(40 + _r.Accuracy * 260);
+        await JS.InvokeVoidAsync("trivia.confetti", count);
+    }
+
+    private string RankColor => _r?.Rank switch
+    {
+        "S" => "bg-sun",
+        "A" => "bg-mint",
+        "B" => "bg-sky",
+        "C" => "bg-cream",
+        _ => "bg-coral"
+    };
+
+    private async Task PlayAgainAsync()
+    {
+        if (_r is null) return;
+
+        _error = null;
+        _loading = true;
+        try
+        {
+            var settings = _r.Settings.Clone();
+            var questions = await Api.GetQuestionsAsync(settings);
+            Session.Start(settings, questions);
+            Nav.NavigateTo("/play");
+        }
+        catch (TriviaApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ChangeSettings()
+    {
+        Session.Reset(); // Settings are kept, so Home pre-fills them
+        Nav.NavigateTo("/");
+    }
+}

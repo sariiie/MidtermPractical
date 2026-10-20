@@ -1,0 +1,60 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<div class="min-h-screen">
+    <NavMenu />
+
+    <main class="mx-auto max-w-6xl px-4 py-10">
+        @if (_ready && Allowed)
+        {
+            @Body
+        }
+        else
+        {
+            <p class="py-20 text-center text-cream/70">Loading…</p>
+        }
+    </main>
+
+    <footer class="px-4 pb-10 text-center text-sm text-cream/60">
+        Questions from
+        <a href="https://opentdb.com" target="_blank" rel="noopener" class="underline hover:text-sun">Open Trivia DB</a>,
+        licensed CC BY-SA 4.0.
+    </footer>
+</div>
+
+<div id="blazor-error-ui">
+    Something broke.
+    <a href="" class="reload underline">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool _ready;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        Nav.LocationChanged += OnLocationChanged;
+        _ready = true;
+        EnforceAccess();
+    }
+
+    // Logged-out visitors only see /login and /register.
+    // Signed-in users (not guests) are bounced away from them.
+    private bool OnAuthPage =>
+        Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant() is "login" or "register";
+
+    private bool Allowed => Auth.IsAuthenticated ? (Auth.IsGuest || !OnAuthPage) : OnAuthPage;
+
+    private void EnforceAccess()
+    {
+        if (Allowed) return;
+        Nav.NavigateTo(Auth.IsAuthenticated ? "" : "login", replace: true);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => EnforceAccess();
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

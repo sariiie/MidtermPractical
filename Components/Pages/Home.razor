@@ -1,0 +1,220 @@
+@page "/"
+@inject GameSession Session
+@inject AuthService Auth
+@inject TriviaApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>TriviaMaster Arcade</PageTitle>
+
+<div class="grid items-start gap-10 lg:grid-cols-12">
+
+    <!-- Left: hero, player card, scoring -->
+    <div class="space-y-8 lg:col-span-5">
+        <Hero />
+
+        @if (Auth.CurrentUser is { } user)
+        {
+            <section class="chunk rounded-2xl bg-panel p-5">
+                <div class="flex items-center gap-4">
+                    <span class="chunk-sm flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sun text-3xl">@user.Avatar</span>
+                    <div class="min-w-0">
+                        <h2 class="truncate font-display text-xl">@(Auth.Stats.GamesPlayed == 0 ? "Welcome" : "Welcome back"), @user.DisplayName</h2>
+                        @if (user.IsGuest)
+                        {
+                            <p class="text-sm text-cream/70">
+                                <a href="/register" class="font-bold text-sun underline">Create an account</a> to keep your scores.
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-cream/70">Ready for game @(Auth.Stats.GamesPlayed + 1)?</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="mt-4 grid grid-cols-4 gap-2 text-center">
+                    <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                        <p class="font-display text-lg">@Auth.Stats.GamesPlayed</p>
+                        <p class="text-xs text-cream/60">games</p>
+                    </div>
+                    <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                        <p class="font-display text-lg">@BestScoreText</p>
+                        <p class="text-xs text-cream/60">best score</p>
+                    </div>
+                    <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                        <p class="font-display text-lg">@AccuracyText</p>
+                        <p class="text-xs text-cream/60">accuracy</p>
+                    </div>
+                    <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                        <p class="font-display text-lg text-sun">@BestRankText</p>
+                        <p class="text-xs text-cream/60">best rank</p>
+                    </div>
+                </div>
+            </section>
+        }
+
+        <section>
+            <h2 class="mb-3 font-display text-lg text-sun">Speed bonus</h2>
+            <div class="grid grid-cols-4 gap-2 text-center">
+                @foreach (var (mult, when) in _tiers)
+                {
+                    <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                        <p class="font-display text-lg text-sun">@mult</p>
+                        <p class="text-xs text-cream/60">@when</p>
+                    </div>
+                }
+            </div>
+            <p class="mt-2 text-sm text-cream/60">Based on how much of the timer you've used.</p>
+        </section>
+    </div>
+
+    <!-- Right: game setup -->
+    <div class="chunk space-y-6 rounded-2xl bg-panel p-5 sm:p-7 lg:col-span-7">
+
+        <fieldset>
+            <legend class="mb-3 font-display text-lg text-sun">Category</legend>
+            <div class="grid grid-cols-2 gap-3">
+                @foreach (var c in TriviaCategory.All)
+                {
+                    var cat = c;
+                    <button type="button" @onclick="() => _category = cat" aria-pressed="@(_category == cat)"
+                            class="@OptionClass(_category == cat) flex items-center gap-3 px-4 py-3 text-left [&:last-child:nth-child(odd)]:col-span-2">
+                        <span class="text-2xl">@cat.Emoji</span>
+                        <span class="font-bold leading-tight">@cat.Name</span>
+                    </button>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="mb-3 font-display text-lg text-sun">Difficulty</legend>
+            <div class="grid grid-cols-3 gap-3">
+                @foreach (var d in Enum.GetValues<Difficulty>())
+                {
+                    var diff = d;
+                    <button type="button" @onclick="() => _difficulty = diff" aria-pressed="@(_difficulty == diff)"
+                            class="@OptionClass(_difficulty == diff) px-3 py-3 text-left">
+                        <span class="block font-display text-base">@diff</span>
+                        <span class="block text-sm @(_difficulty == diff ? "text-ink/70" : "text-cream/60")">
+                            @(diff.TimeLimitSeconds())s, @(diff.BasePoints()) pts
+                        </span>
+                    </button>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="mb-3 font-display text-lg text-sun">Question type</legend>
+            <div class="grid grid-cols-2 gap-3">
+                @foreach (var t in Enum.GetValues<QuestionType>())
+                {
+                    var type = t;
+                    <button type="button" @onclick="() => _type = type" aria-pressed="@(_type == type)"
+                            class="@OptionClass(_type == type) px-4 py-3 text-left font-bold">
+                        @type.Label()
+                    </button>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="mb-3 font-display text-lg text-sun">Length</legend>
+            <div class="grid grid-cols-4 gap-3">
+                @foreach (var n in _amounts)
+                {
+                    var amount = n;
+                    <button type="button" @onclick="() => _amount = amount" aria-pressed="@(_amount == amount)"
+                            class="@OptionClass(_amount == amount) px-2 py-3 text-center font-display text-lg">
+                        @amount
+                    </button>
+                }
+            </div>
+        </fieldset>
+
+        @if (_error is not null)
+        {
+            <div role="alert" class="chunk-sm rounded-xl bg-coral px-4 py-3 font-semibold text-ink">@_error</div>
+        }
+
+        <button type="button" @onclick="StartAsync" disabled="@_loading"
+                class="chunk chunk-btn flex w-full items-center justify-center gap-3 rounded-2xl bg-mint px-6 py-4 font-display text-xl text-ink disabled:opacity-60">
+            @if (_loading)
+            {
+                <span class="h-5 w-5 animate-spin rounded-full border-4 border-ink/30 border-t-ink"></span>
+                <span>Loading questions</span>
+            }
+            else
+            {
+                <span>Start game</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    private static readonly int[] _amounts = { 5, 10, 15, 20 };
+
+    private static readonly (string Mult, string When)[] _tiers =
+    {
+        ("×2", "under 25%"),
+        ("×1.5", "under 50%"),
+        ("×1.25", "under 75%"),
+        ("×1", "after that"),
+    };
+
+    private TriviaCategory _category = TriviaCategory.All[0];
+    private Difficulty _difficulty;
+    private QuestionType _type;
+    private int _amount = 10;
+    private bool _loading;
+    private string? _error;
+
+    private string BestScoreText => Auth.Stats.GamesPlayed == 0 ? "-" : Auth.Stats.BestScore.ToString("N0");
+
+    private string AccuracyText => Auth.Stats.GamesPlayed == 0
+        ? "-"
+        : (Auth.Stats.Accuracy * 100).ToString("0") + "%";
+
+    private string BestRankText => string.IsNullOrEmpty(Auth.Stats.BestRank) ? "-" : Auth.Stats.BestRank;
+
+    protected override void OnInitialized()
+    {
+        // Remember the last game's choices
+        var last = Session.Settings;
+        _category = last.Category;
+        _difficulty = last.Difficulty;
+        _type = last.Type;
+        _amount = last.Amount;
+    }
+
+    private static string OptionClass(bool active) =>
+        "chunk-sm chunk-btn rounded-xl " + (active ? "bg-sun text-ink" : "bg-panel-hi text-cream");
+
+    private async Task StartAsync()
+    {
+        _error = null;
+        _loading = true;
+        try
+        {
+            var settings = new QuizSettings
+            {
+                Category = _category,
+                Difficulty = _difficulty,
+                Type = _type,
+                Amount = _amount
+            };
+
+            var questions = await Api.GetQuestionsAsync(settings);
+            Session.Start(settings, questions);
+            Nav.NavigateTo("/play");
+        }
+        catch (TriviaApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

@@ -1,0 +1,27 @@
+@if (Heading)
+{
+    <section>
+        <h1 class="@LogoClass">Trivia<br />Master</h1>
+        <p class="chunk-sm mt-6 inline-block -rotate-2 rounded-md bg-coral px-3 py-1 font-display text-xl text-ink">Arcade</p>
+        <p class="mt-6 max-w-md text-lg text-cream/80">@Tagline</p>
+    </section>
+}
+else
+{
+    <section>
+        <p class="@LogoClass">Trivia<br />Master</p>
+        <p class="chunk-sm mt-6 inline-block -rotate-2 rounded-md bg-coral px-3 py-1 font-display text-xl text-ink">Arcade</p>
+        <p class="mt-6 max-w-md text-lg text-cream/80">@Tagline</p>
+    </section>
+}
+
+@code {
+    private const string LogoClass = "logo-3d font-display text-6xl leading-[0.95] sm:text-7xl lg:text-8xl";
+
+    /// <summary>Render the logo as the page's h1 (turn off on pages that have their own h1).</summary>
+    [Parameter] public bool Heading { get; set; } = true;
+
+    [Parameter]
+    public string Tagline { get; set; } =
+        "Fresh questions from the Open Trivia DB every game. Beat the clock to multiply your points.";
+}

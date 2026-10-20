@@ -1,0 +1,116 @@
+@page "/register"
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Register · TriviaMaster Arcade</PageTitle>
+
+<AuthShell>
+    <h1 class="font-display text-3xl text-sun">Create account</h1>
+    <p class="mt-2 text-cream/70">Save your scores, stats and best rank.</p>
+
+    <EditForm Model="_form" OnValidSubmit="SubmitAsync" novalidate class="mt-6 space-y-5">
+        <DataAnnotationsValidator />
+
+        @if (_error is not null)
+        {
+            <div role="alert" class="chunk-sm rounded-xl bg-coral px-4 py-3 font-semibold text-ink">@_error</div>
+        }
+
+        <fieldset>
+            <legend class="mb-1.5 font-bold">Pick your avatar</legend>
+            <div class="grid grid-cols-4 gap-2 sm:grid-cols-8">
+                @foreach (var emoji in _avatars)
+                {
+                    var e = emoji;
+                    <button type="button" @onclick="() => _form.Avatar = e" aria-pressed="@(_form.Avatar == e)"
+                            class="chunk-sm chunk-btn flex h-12 items-center justify-center rounded-xl text-2xl @(_form.Avatar == e ? "bg-sun" : "bg-panel-hi")">
+                        @e
+                    </button>
+                }
+            </div>
+        </fieldset>
+
+        <div>
+            <label for="name" class="mb-1.5 block font-bold">Display name</label>
+            <InputText id="name" autocomplete="nickname" placeholder="QuizWizard"
+                       @bind-Value="_form.DisplayName" class="@InputClass" />
+            <ValidationMessage For="() => _form.DisplayName" class="mt-1.5 text-sm font-bold text-coral" />
+        </div>
+
+        <div>
+            <label for="email" class="mb-1.5 block font-bold">Email</label>
+            <InputText id="email" type="email" autocomplete="email" placeholder="you@example.com"
+                       @bind-Value="_form.Email" class="@InputClass" />
+            <ValidationMessage For="() => _form.Email" class="mt-1.5 text-sm font-bold text-coral" />
+        </div>
+
+        <div>
+            <label for="password" class="mb-1.5 block font-bold">Password</label>
+            <div class="relative">
+                <InputText id="password" type="@(_show ? "text" : "password")" autocomplete="new-password"
+                           @bind-Value="_form.Password" class="@PasswordClass" />
+                <button type="button" @onclick="() => _show = !_show"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-cream/70 hover:text-sun">
+                    @(_show ? "Hide" : "Show")
+                </button>
+            </div>
+            <p class="mt-1.5 text-sm text-cream/50">At least 6 characters.</p>
+            <ValidationMessage For="() => _form.Password" class="mt-1.5 text-sm font-bold text-coral" />
+        </div>
+
+        <div>
+            <label for="confirm" class="mb-1.5 block font-bold">Confirm password</label>
+            <InputText id="confirm" type="@(_show ? "text" : "password")" autocomplete="new-password"
+                       @bind-Value="_form.ConfirmPassword" class="@InputClass" />
+            <ValidationMessage For="() => _form.ConfirmPassword" class="mt-1.5 text-sm font-bold text-coral" />
+        </div>
+
+        <button type="submit" disabled="@_busy"
+                class="chunk chunk-btn flex w-full items-center justify-center gap-3 rounded-2xl bg-mint px-6 py-3.5 font-display text-lg text-ink disabled:opacity-60">
+            @if (_busy)
+            {
+                <span class="h-5 w-5 animate-spin rounded-full border-4 border-ink/30 border-t-ink"></span>
+                <span>Creating account</span>
+            }
+            else
+            {
+                <span>Create account</span>
+            }
+        </button>
+    </EditForm>
+
+    <p class="mt-6 text-center text-cream/70">
+        Already have an account?
+        <a href="/login" class="font-bold text-sun underline">Log in</a>
+    </p>
+    <p class="mt-3 text-center text-xs text-cream/40">Accounts are saved in this browser only.</p>
+</AuthShell>
+
+@code {
+    private const string InputClass =
+        "chunk-sm w-full rounded-xl bg-ink px-4 py-3 font-semibold text-cream placeholder:text-cream/40";
+
+    // Components can't mix C# and text in one attribute, so build the whole class string here
+    private const string PasswordClass = InputClass + " pr-20";
+
+    private static readonly string[] _avatars = { "🦊", "🐼", "🐸", "🦄", "🐙", "🐲", "🤖", "👾" };
+
+    private readonly RegisterForm _form = new();
+    private bool _show;
+    private bool _busy;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+
+        var result = await Auth.RegisterAsync(_form);
+
+        _busy = false;
+        if (result.Success)
+            Nav.NavigateTo("/");
+        else
+            _error = result.Error;
+    }
+}

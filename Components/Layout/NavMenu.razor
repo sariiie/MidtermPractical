@@ -1,0 +1,56 @@
+@implements IDisposable
+@inject AuthService Auth
+@inject GameSession Session
+@inject NavigationManager Nav
+
+<header class="border-b-4 border-edge bg-panel">
+    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <a href="/" class="flex items-center gap-2 font-display text-lg text-sun">
+            <span class="text-2xl">🕹️</span>
+            TriviaMaster
+        </a>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            @if (Auth.IsInitialized)
+            {
+                @if (Auth.CurrentUser is { } user)
+                {
+                    <div class="chunk-sm flex items-center gap-2 rounded-full bg-panel-hi py-1 pl-1 pr-2 sm:pr-4">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-sun text-lg">@user.Avatar</span>
+                        <span class="hidden max-w-32 truncate font-bold sm:inline">@user.DisplayName</span>
+                    </div>
+
+                    @if (user.IsGuest)
+                    {
+                        <a href="/register" class="chunk-sm chunk-btn rounded-xl bg-sun px-4 py-2 font-bold text-ink">Sign up</a>
+                    }
+
+                    <button type="button" @onclick="LogoutAsync"
+                            class="chunk-sm chunk-btn rounded-xl bg-panel-hi px-4 py-2 font-bold">
+                        Log out
+                    </button>
+                }
+                else
+                {
+                    <a href="/login" class="chunk-sm chunk-btn rounded-xl bg-panel-hi px-4 py-2 font-bold">Log in</a>
+                    <a href="/register" class="chunk-sm chunk-btn rounded-xl bg-sun px-4 py-2 font-bold text-ink">Register</a>
+                }
+            }
+        </div>
+    </nav>
+</header>
+
+@code {
+    protected override void OnInitialized() => Auth.OnChange += Refresh;
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private async Task LogoutAsync()
+    {
+        Session.Reset();
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+
+    public void Dispose() => Auth.OnChange -= Refresh;
+}

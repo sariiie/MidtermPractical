@@ -1,0 +1,14 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <div class="py-20 text-center">
+                <h1 class="font-display text-4xl text-sun">Game not found</h1>
+                <a href="/" class="mt-4 inline-block underline">Back to the arcade</a>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>
