@@ -13,6 +13,9 @@ public class GameSession
     /// <summary>Set after a game ends: did it beat the player's previous best score?</summary>
     public bool IsNewBest { get; set; }
 
+    /// <summary>Set after a game ends: overall leaderboard place (1 = best), or 0 if it didn't make the board.</summary>
+    public int LeaderboardPlace { get; set; }
+
     public bool HasActiveGame => Questions.Count > 0 && Result is null;
 
     public void Start(QuizSettings settings, IEnumerable<TriviaQuestion> questions)
@@ -22,6 +25,7 @@ public class GameSession
         Answers.Clear();
         Result = null;
         IsNewBest = false;
+        LeaderboardPlace = 0;
     }
 
     public void Finish() => Result = QuizResult.From(Settings, Answers);
@@ -32,5 +36,6 @@ public class GameSession
         Answers.Clear();
         Result = null;
         IsNewBest = false;
+        LeaderboardPlace = 0;
     }
 }

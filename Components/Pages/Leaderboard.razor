@@ -1,0 +1,151 @@
+@page "/leaderboard"
+@using System.Globalization
+@inject LeaderboardService Board
+@inject AuthService Auth
+
+<PageTitle>Leaderboard · TriviaMaster Arcade</PageTitle>
+
+@{ var rows = Rows; }
+
+<div class="anim-in mx-auto max-w-3xl space-y-8">
+
+    <section class="text-center">
+        <h1 class="font-display text-4xl text-sun">Leaderboard</h1>
+        <p class="mt-2 text-cream/70">Top scores saved in this browser. Beat the clock to climb.</p>
+    </section>
+
+    <section class="chunk space-y-5 rounded-2xl bg-panel p-5 sm:p-6">
+        <fieldset>
+            <legend class="mb-2 font-display text-base text-sun">Difficulty</legend>
+            <div class="grid grid-cols-4 gap-2">
+                <button type="button" @onclick="() => _difficulty = null" aria-pressed="@(_difficulty is null)"
+                        class="@OptionClass(_difficulty is null) px-2 py-2 text-center font-bold">All</button>
+                @foreach (var d in Enum.GetValues<Difficulty>())
+                {
+                    var diff = d;
+                    <button type="button" @onclick="() => _difficulty = diff" aria-pressed="@(_difficulty == diff)"
+                            class="@OptionClass(_difficulty == diff) px-2 py-2 text-center font-bold">@diff</button>
+                }
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend class="mb-2 font-display text-base text-sun">Category</legend>
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <button type="button" @onclick="() => _category = null" aria-pressed="@(_category is null)"
+                        class="@OptionClass(_category is null) px-3 py-2 text-left font-bold">🏆 All</button>
+                @foreach (var c in TriviaCategory.All)
+                {
+                    var cat = c;
+                    <button type="button" @onclick="() => _category = cat" aria-pressed="@(_category == cat)"
+                            class="@OptionClass(_category == cat) truncate px-3 py-2 text-left font-bold">@cat.Emoji @cat.Name</button>
+                }
+            </div>
+        </fieldset>
+    </section>
+
+    @if (!_loaded)
+    {
+        <p class="py-10 text-center text-cream/70">Loading…</p>
+    }
+    else if (rows.Count == 0)
+    {
+        <section class="chunk rounded-2xl bg-panel p-8 text-center">
+            <p class="text-4xl">🏆</p>
+            <p class="mt-3 font-display text-xl">@(_all.Count == 0 ? "No scores yet" : "No scores match those filters")</p>
+            <p class="mt-1 text-cream/70">@(_all.Count == 0 ? "Finish a game and you'll show up here." : "Try a different difficulty or category.")</p>
+            <a href="/" class="chunk-sm chunk-btn mt-5 inline-block rounded-xl bg-mint px-6 py-3 font-display text-lg text-ink">Start a game</a>
+        </section>
+    }
+    else
+    {
+        <ol class="space-y-3">
+            @for (var i = 0; i < rows.Count; i++)
+            {
+                var e = rows[i];
+                var place = i + 1;
+                var mine = Auth.CurrentUser is { } me && e.UserId == me.Id;
+
+                <li class="chunk-sm flex items-center gap-3 rounded-xl p-3 sm:gap-4 sm:p-4 @(mine ? "bg-sun/20" : "bg-panel")">
+                    <span class="w-10 shrink-0 text-center font-display @(place <= 3 ? "text-3xl" : "text-xl text-cream/60")">@PlaceLabel(place)</span>
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sun text-xl">@e.Avatar</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate font-bold">
+                            @e.Name
+                            @if (mine)
+                            {
+                                <span class="chunk-sm ml-1 rounded-full bg-sky px-2 py-0.5 align-middle text-xs text-ink">you</span>
+                            }
+                        </p>
+                        <p class="truncate text-sm text-cream/60">
+                            @e.CategoryEmoji @e.Category · @e.Difficulty · @e.Correct/@e.Total · @e.PlayedAt.ToString("MMM d", CultureInfo.InvariantCulture)
+                        </p>
+                    </div>
+                    <div class="shrink-0 text-right">
+                        <p class="font-display text-xl text-sun">@e.Score.ToString("N0")</p>
+                        <p class="font-display text-sm text-cream/60">Rank @e.Rank</p>
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+
+    @if (_all.Count > 0)
+    {
+        <div class="text-center">
+            @if (_confirmClear)
+            {
+                <span class="mr-3 text-sm text-cream/70">Delete all saved scores?</span>
+                <button type="button" @onclick="ClearAsync"
+                        class="chunk-sm chunk-btn rounded-xl bg-coral px-4 py-2 font-bold text-ink">Yes, clear</button>
+                <button type="button" @onclick="() => _confirmClear = false"
+                        class="chunk-sm chunk-btn ml-2 rounded-xl bg-panel-hi px-4 py-2 font-bold">Cancel</button>
+            }
+            else
+            {
+                <button type="button" @onclick="() => _confirmClear = true"
+                        class="text-sm text-cream/50 underline hover:text-coral">Clear leaderboard</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int ShowTop = 25;
+
+    private List<ScoreEntry> _all = new();
+    private bool _loaded;
+    private bool _confirmClear;
+    private Difficulty? _difficulty;
+    private TriviaCategory? _category;
+
+    private List<ScoreEntry> Rows => _all
+        .Where(e => (_difficulty is null || e.Difficulty == _difficulty)
+                 && (_category is null || e.Category == _category.Name))
+        .Take(ShowTop)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _all = await Board.GetAllAsync();
+        _loaded = true;
+    }
+
+    private async Task ClearAsync()
+    {
+        await Board.ClearAsync();
+        _all = new();
+        _confirmClear = false;
+    }
+
+    private static string PlaceLabel(int place) => place switch
+    {
+        1 => "🥇",
+        2 => "🥈",
+        3 => "🥉",
+        _ => "#" + place
+    };
+
+    private static string OptionClass(bool active) =>
+        "chunk-sm chunk-btn rounded-xl " + (active ? "bg-sun text-ink" : "bg-panel-hi text-cream");
+}

@@ -18,6 +18,9 @@ builder.Services.AddScoped<GameSession>();
 // Browser-only accounts (localStorage), no database
 builder.Services.AddScoped<AuthService>();
 
+// Browser-only leaderboard (localStorage), no database
+builder.Services.AddScoped<LeaderboardService>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

@@ -21,6 +21,13 @@ else
             {
                 <p class="chunk-sm mt-3 inline-block rotate-2 rounded-md bg-sun px-3 py-1 font-display text-ink">New personal best!</p>
             }
+            @if (Session.LeaderboardPlace > 0)
+            {
+                <p class="mt-3 text-cream/80">
+                    You placed <span class="font-bold text-sun">#@Session.LeaderboardPlace</span> on the
+                    <a href="/leaderboard" class="font-bold underline hover:text-sun">leaderboard</a>.
+                </p>
+            }
 
             <div class="@RankColor chunk mx-auto mt-6 flex h-32 w-32 items-center justify-center rounded-full font-display text-7xl text-ink">
                 @_r.Rank
@@ -66,6 +73,9 @@ else
                         class="chunk-sm chunk-btn rounded-xl bg-sun px-6 py-3 font-display text-lg text-ink">
                     Change settings
                 </button>
+                <a href="/leaderboard" class="chunk-sm chunk-btn rounded-xl bg-sky px-6 py-3 text-center font-display text-lg text-ink">
+                    Leaderboard
+                </a>
                 <button type="button" @onclick="FireConfettiAsync"
                         class="chunk-sm chunk-btn rounded-xl bg-panel-hi px-6 py-3 font-display text-lg">
                     🎉 Confetti

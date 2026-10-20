@@ -3,6 +3,7 @@
 @implements IDisposable
 @inject GameSession Session
 @inject AuthService Auth
+@inject LeaderboardService Board
 @inject NavigationManager Nav
 
 <PageTitle>Playing · TriviaMaster Arcade</PageTitle>
@@ -201,6 +202,7 @@ else
         {
             Session.Finish();
             Session.IsNewBest = await Auth.RecordGameAsync(Session.Result!);
+            Session.LeaderboardPlace = await Board.AddAsync(Auth.CurrentUser, Session.Result!);
             Nav.NavigateTo("/results");
             return;
         }
