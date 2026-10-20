@@ -32,5 +32,6 @@ They exist only in the browser where you created them. This is a demo, not real 
 - `Services/Scoring.cs`: speed multipliers (x2 / x1.5 / x1.25 / x1)
 - `Services/AuthService.cs`: browser-only accounts, session, and per-user stats
 - `Services/GameSession.cs`: game state shared between pages
-- `Components/Pages/`: Home (setup + player card), Play (quiz), Results (breakdown + confetti), Login, Register
+- `Services/LeaderboardService.cs`: browser-only leaderboard (top 200 scores in localStorage)
+- `Components/Pages/`: Home (setup + player card), Play (quiz), Results (breakdown + confetti), Leaderboard, How to play (mechanics), Profile (stats + badges), Login, Register
 - `wwwroot/js/trivia.js`: confetti
