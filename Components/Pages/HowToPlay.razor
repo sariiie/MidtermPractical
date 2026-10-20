@@ -1,0 +1,148 @@
+@page "/how-to-play"
+
+<PageTitle>How to play · TriviaMaster Arcade</PageTitle>
+
+<div class="anim-in mx-auto max-w-3xl space-y-10">
+
+    <section class="text-center">
+        <h1 class="font-display text-4xl text-sun">How to play</h1>
+        <p class="mt-2 text-cream/70">Pick a topic, race the timer, stack points.</p>
+    </section>
+
+    <section>
+        <h2 class="mb-4 font-display text-2xl text-sun">The basics</h2>
+        <ol class="space-y-3">
+            @for (var i = 0; i < _steps.Length; i++)
+            {
+                var s = _steps[i];
+                <li class="chunk-sm flex gap-4 rounded-xl bg-panel p-4">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sun font-display text-ink">@(i + 1)</span>
+                    <div>
+                        <p class="font-bold">@s.Title</p>
+                        <p class="text-sm text-cream/70">@s.Body</p>
+                    </div>
+                </li>
+            }
+        </ol>
+    </section>
+
+    <section>
+        <h2 class="mb-2 font-display text-2xl text-sun">Scoring</h2>
+        <p class="mb-4 text-cream/70">
+            Every correct answer is worth base points for its difficulty, multiplied by a speed bonus.
+            The faster you answer, the bigger the multiplier.
+        </p>
+
+        <div class="grid grid-cols-5 gap-2 text-center">
+            <div></div>
+            @foreach (var t in _tiers)
+            {
+                <div class="chunk-sm rounded-lg bg-panel-hi py-2">
+                    <p class="font-display text-lg text-sun">@t.Label</p>
+                    <p class="text-xs text-cream/60">@t.When</p>
+                </div>
+            }
+
+            @foreach (var d in Enum.GetValues<Difficulty>())
+            {
+                var diff = d;
+                <div class="flex flex-col justify-center text-left">
+                    <p class="font-display text-base">@diff</p>
+                    <p class="text-xs text-cream/60">@(diff.TimeLimitSeconds())s timer</p>
+                </div>
+                foreach (var t in _tiers)
+                {
+                    <div class="chunk-sm flex items-center justify-center rounded-lg bg-panel py-3">
+                        <p class="font-display text-lg">@Scoring.Points(diff, t.SampleFraction)</p>
+                    </div>
+                }
+            }
+        </div>
+
+        <p class="chunk-sm mt-4 rounded-xl bg-sky px-4 py-3 text-sm font-semibold text-ink">
+            Example: a Hard question answered with 10 of 12 seconds still left is worth
+            @Scoring.Points(Difficulty.Hard, 10.0 / 12) points (300 × 2).
+        </p>
+    </section>
+
+    <section>
+        <h2 class="mb-4 font-display text-2xl text-sun">Rules worth knowing</h2>
+        <ul class="space-y-3">
+            @foreach (var rule in _rules)
+            {
+                <li class="chunk-sm flex gap-3 rounded-xl bg-panel p-4">
+                    <span class="text-2xl">@rule.Emoji</span>
+                    <p class="text-sm text-cream/80">@rule.Text</p>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section>
+        <h2 class="mb-2 font-display text-2xl text-sun">Ranks</h2>
+        <p class="mb-4 text-cream/70">Your rank at the end of a game depends on accuracy, not points.</p>
+        <div class="grid grid-cols-5 gap-2 text-center">
+            @foreach (var r in _ranks)
+            {
+                <div class="chunk-sm rounded-xl bg-panel p-3">
+                    <p class="@r.Color chunk-sm mx-auto flex h-12 w-12 items-center justify-center rounded-full font-display text-2xl text-ink">@r.Letter</p>
+                    <p class="mt-2 font-display text-sm">@r.Needs</p>
+                    <p class="text-xs text-cream/60">@r.Title</p>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section>
+        <h2 class="mb-4 font-display text-2xl text-sun">Tips</h2>
+        <ul class="list-inside list-disc space-y-2 text-cream/80">
+            <li>Read fast, but read all the way. A wrong answer scores zero no matter how quick it was.</li>
+            <li>Easy mode gives you the longest timer. It's the best place to learn the speed bonus.</li>
+            <li>True / False is quicker to answer, so it's the easiest way to farm the x2 bonus.</li>
+            <li>Chasing the leaderboard? Hard questions are worth three times as much as Easy ones.</li>
+        </ul>
+    </section>
+
+    <div class="grid gap-3 sm:grid-cols-2">
+        <a href="/" class="chunk chunk-btn rounded-2xl bg-mint px-6 py-4 text-center font-display text-xl text-ink">Start a game</a>
+        <a href="/leaderboard" class="chunk chunk-btn rounded-2xl bg-sun px-6 py-4 text-center font-display text-xl text-ink">Leaderboard</a>
+    </div>
+</div>
+
+@code {
+    private static readonly (string Title, string Body)[] _steps =
+    {
+        ("Set up your game", "Choose a category, a difficulty, a question type and how many questions you want."),
+        ("Beat the timer", "Each question has its own countdown. Easy gives you 20 seconds, Medium 15 and Hard 12."),
+        ("Answer fast", "Tap an answer before time runs out. The sooner you answer, the higher your speed multiplier."),
+        ("See your results", "You get a rank, a full question breakdown and a spot on the leaderboard."),
+    };
+
+    // Sample fractions are the middle of each tier in Scoring.Multiplier (fraction of the timer that is LEFT).
+    private static readonly (string Label, string When, double SampleFraction)[] _tiers =
+    {
+        ("×2", "under 25% used", 0.9),
+        ("×1.5", "under 50% used", 0.6),
+        ("×1.25", "under 75% used", 0.35),
+        ("×1", "after that", 0.1),
+    };
+
+    private static readonly (string Emoji, string Text)[] _rules =
+    {
+        ("⏱️", "The timer starts the moment a question appears. If it hits zero, that question counts as wrong."),
+        ("❌", "A wrong answer or a timeout scores 0 points and resets your streak."),
+        ("🔥", "Answer correctly several times in a row to build a streak. Streaks don't add points, but your best one is saved to your profile."),
+        ("🔄", "Refreshing the page in the middle of a game ends it, so you'll land back on the home screen."),
+        ("👤", "Guests can play and appear on the leaderboard, but their personal stats and badges aren't saved. Create an account to keep them."),
+    };
+
+    // Keep in sync with QuizResult.Rank / RankTitle
+    private static readonly (string Letter, string Color, string Needs, string Title)[] _ranks =
+    {
+        ("S", "bg-sun", "90%+", "Trivia legend"),
+        ("A", "bg-mint", "75%+", "Quiz whiz"),
+        ("B", "bg-sky", "60%+", "Solid player"),
+        ("C", "bg-cream", "40%+", "Warming up"),
+        ("D", "bg-coral", "under 40%", "Rookie"),
+    };
+}
