@@ -1,0 +1,97 @@
+@page "/profile"
+@using System.Globalization
+@inject AuthService Auth
+
+<PageTitle>Profile · TriviaMaster Arcade</PageTitle>
+
+@if (Auth.CurrentUser is { } user)
+{
+    var s = Auth.Stats;
+    var unlocked = _badges.Count(b => b.Unlocked(s));
+
+    <div class="anim-in mx-auto max-w-3xl space-y-8">
+
+        <section class="chunk flex flex-col items-center gap-5 rounded-2xl bg-panel p-6 text-center sm:flex-row sm:text-left">
+            <span class="chunk flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-sun text-6xl">@user.Avatar</span>
+            <div class="min-w-0">
+                <h1 class="truncate font-display text-3xl text-sun">@user.DisplayName</h1>
+                @if (user.IsGuest)
+                {
+                    <p class="text-cream/70">
+                        Guest player. <a href="/register" class="font-bold text-sun underline">Create an account</a> to keep your stats and badges.
+                    </p>
+                }
+                else
+                {
+                    <p class="text-cream/70">Member since @user.CreatedAt.ToString("MMM yyyy", CultureInfo.InvariantCulture)</p>
+                }
+            </div>
+        </section>
+
+        <section>
+            <h2 class="mb-4 font-display text-2xl text-sun">Your stats</h2>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                @foreach (var (value, label) in StatTiles(s))
+                {
+                    <div class="chunk-sm rounded-xl bg-panel p-4 text-center">
+                        <p class="font-display text-2xl">@value</p>
+                        <p class="text-sm text-cream/60">@label</p>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section>
+            <div class="mb-4 flex items-end justify-between gap-4">
+                <h2 class="font-display text-2xl text-sun">Badges</h2>
+                <p class="font-display text-cream/70">@unlocked / @_badges.Length</p>
+            </div>
+            <ul class="grid gap-3 sm:grid-cols-2">
+                @foreach (var b in _badges)
+                {
+                    var on = b.Unlocked(s);
+                    <li class="chunk-sm flex items-center gap-4 rounded-xl p-4 @(on ? "bg-panel" : "bg-panel/50 opacity-60")">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-2xl @(on ? "bg-sun" : "bg-edge")">@(on ? b.Emoji : "🔒")</span>
+                        <div class="min-w-0">
+                            <p class="font-display text-base">@b.Name</p>
+                            <p class="text-sm text-cream/70">@b.Hint</p>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+
+        <div class="text-center">
+            <a href="/" class="chunk chunk-btn inline-block rounded-2xl bg-mint px-8 py-4 font-display text-xl text-ink">Play a game</a>
+        </div>
+    </div>
+}
+
+@code {
+    private sealed record Badge(string Emoji, string Name, string Hint, Func<UserStats, bool> Unlocked);
+
+    private static readonly Badge[] _badges =
+    {
+        new("🎯", "First steps", "Finish your first game.", s => s.GamesPlayed >= 1),
+        new("🔁", "Regular", "Finish 10 games.", s => s.GamesPlayed >= 10),
+        new("📚", "Know-it-all", "Answer 100 questions.", s => s.QuestionsAnswered >= 100),
+        new("🧠", "Sharpshooter", "80%+ accuracy over at least 20 questions.", s => s.QuestionsAnswered >= 20 && s.Accuracy >= 0.8),
+        new("🔥", "On fire", "Get 5 correct answers in a row.", s => s.BestStreak >= 5),
+        new("🌋", "Unstoppable", "Get 10 correct answers in a row.", s => s.BestStreak >= 10),
+        new("💰", "High roller", "Score 2,000 points in a single game.", s => s.BestScore >= 2000),
+        new("👑", "Legend", "Earn an S rank.", s => s.BestRank == "S"),
+    };
+
+    private static IEnumerable<(string Value, string Label)> StatTiles(UserStats s)
+    {
+        var played = s.GamesPlayed > 0;
+        yield return (s.GamesPlayed.ToString("N0"), "games played");
+        yield return (s.QuestionsAnswered.ToString("N0"), "questions answered");
+        yield return (played ? (s.Accuracy * 100).ToString("0") + "%" : "-", "accuracy");
+        yield return (string.IsNullOrEmpty(s.BestRank) ? "-" : s.BestRank, "best rank");
+        yield return (played ? s.BestScore.ToString("N0") : "-", "best score");
+        yield return (played ? s.TotalScore.ToString("N0") : "-", "total points");
+        yield return (played ? "🔥 " + s.BestStreak : "-", "best streak");
+        yield return (played ? (s.TotalScore / s.GamesPlayed).ToString("N0") : "-", "avg. per game");
+    }
+}
