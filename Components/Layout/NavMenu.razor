@@ -4,11 +4,21 @@
 @inject NavigationManager Nav
 
 <header class="border-b-4 border-edge bg-panel">
-    <nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+    <nav class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
         <a href="/" class="flex items-center gap-2 font-display text-lg text-sun">
             <span class="text-2xl">🕹️</span>
             TriviaMaster
         </a>
+
+        @if (Auth.CurrentUser is not null)
+        {
+            <div class="order-last flex w-full flex-wrap justify-center gap-1 sm:order-none sm:w-auto sm:flex-1">
+                <NavLink href="/" Match="NavLinkMatch.All" class="@LinkClass" ActiveClass="@ActiveClass">Play</NavLink>
+                <NavLink href="/leaderboard" class="@LinkClass" ActiveClass="@ActiveClass">Leaderboard</NavLink>
+                <NavLink href="/how-to-play" class="@LinkClass" ActiveClass="@ActiveClass">How to play</NavLink>
+                <NavLink href="/profile" class="@LinkClass" ActiveClass="@ActiveClass">Profile</NavLink>
+            </div>
+        }
 
         <div class="flex items-center gap-2 sm:gap-3">
             @if (Auth.IsInitialized)
@@ -41,6 +51,9 @@
 </header>
 
 @code {
+    private const string LinkClass = "rounded-xl px-3 py-2 text-sm font-bold hover:underline sm:text-base";
+    private const string ActiveClass = "bg-sun text-ink chunk-sm";
+
     protected override void OnInitialized() => Auth.OnChange += Refresh;
 
     private void Refresh() => InvokeAsync(StateHasChanged);
