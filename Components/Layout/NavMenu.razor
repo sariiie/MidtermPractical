@@ -16,7 +16,6 @@
                 <NavLink href="/" Match="NavLinkMatch.All" class="@LinkClass" ActiveClass="@ActiveClass">Play</NavLink>
                 <NavLink href="/leaderboard" class="@LinkClass" ActiveClass="@ActiveClass">Leaderboard</NavLink>
                 <NavLink href="/how-to-play" class="@LinkClass" ActiveClass="@ActiveClass">How to play</NavLink>
-                <NavLink href="/profile" class="@LinkClass" ActiveClass="@ActiveClass">Profile</NavLink>
             </div>
         }
 
@@ -25,10 +24,10 @@
             {
                 @if (Auth.CurrentUser is { } user)
                 {
-                    <div class="chunk-sm flex items-center gap-2 rounded-full bg-panel-hi py-1 pl-1 pr-2 sm:pr-4">
+                    <NavLink href="/profile" class="@ChipClass" ActiveClass="@ChipActiveClass" title="Your profile" aria-label="Your profile">
                         <span class="flex h-8 w-8 items-center justify-center rounded-full bg-sun text-lg">@user.Avatar</span>
                         <span class="hidden max-w-32 truncate font-bold sm:inline">@user.DisplayName</span>
-                    </div>
+                    </NavLink>
 
                     @if (user.IsGuest)
                     {
@@ -53,6 +52,9 @@
 @code {
     private const string LinkClass = "rounded-xl px-3 py-2 text-sm font-bold hover:underline sm:text-base";
     private const string ActiveClass = "bg-sun text-ink chunk-sm";
+
+    private const string ChipClass = "chunk-sm chunk-btn flex items-center gap-2 rounded-full bg-panel-hi py-1 pl-1 pr-2 sm:pr-4";
+    private const string ChipActiveClass = "ring-4 ring-sun";
 
     protected override void OnInitialized() => Auth.OnChange += Refresh;
 
